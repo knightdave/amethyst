@@ -377,7 +377,7 @@ fn build_tiles_pipeline<B: Backend>(
                     blend: Some(pso::BlendState::PREMULTIPLIED_ALPHA),
                 }])
                 .with_depth_test(pso::DepthTest {
-                    fun: pso::Comparison::Less,
+                    fun: pso::Comparison::Greater,
                     write: false,
                 }),
         )
