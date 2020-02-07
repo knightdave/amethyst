@@ -88,7 +88,7 @@ impl Orthographic {
     /// * `z_near` - The distance between the viewer (the origin) and the closest face of the cuboid parallel to the xy-plane. If used for a 3D rendering application, this is the closest clipping plane.
     /// * `z_far` - The distance between the viewer (the origin) and the furthest face of the cuboid parallel to the xy-plane. If used for a 3D rendering application, this is the furthest clipping plane.
     ///
-    /// The projection matrix is right-handed and has a depth range of 0 to 1
+    /// The projection matrix is right-handed and depth goes from 1 to 0.
     ///
     /// * panics if `left` equals `right`, `bottom` equals `top` or `z_near` equals `z_far`
     pub fn new(left: f32, right: f32, bottom: f32, top: f32, z_near: f32, z_far: f32) -> Self {
@@ -111,10 +111,10 @@ impl Orthographic {
 
         matrix[(0, 0)] = 2.0 / (right - left);
         matrix[(1, 1)] = -2.0 / (top - bottom);
-        matrix[(2, 2)] = -1.0 / (z_far - z_near);
+        matrix[(2, 2)] = 1.0 / (z_far - z_near);
         matrix[(0, 3)] = -(right + left) / (right - left);
         matrix[(1, 3)] = -(top + bottom) / (top - bottom);
-        matrix[(2, 3)] = -z_near / (z_far - z_near);
+        matrix[(2, 3)] = z_far / (z_far - z_near);
 
         Self {
             matrix,
@@ -255,7 +255,7 @@ impl Orthographic {
 /// This implementation provides an interface with feature parity to nalgebra, but retaining
 /// the vulkan coordinate space.
 ///
-/// The projection matrix is right-handed and has a depth range of 0 to 1
+/// The projection matrix is right-handed and has a depth goes from 1 to 0.
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Perspective {
     matrix: Matrix4<f32>,
@@ -274,15 +274,10 @@ impl Perspective {
     /// * aspect - Aspect Ratio represented as a `f32` ratio.
     /// * fov - Field of View represented in radians
     /// * z_near - Near clip plane distance
-    /// * z_far - Far clip plane distance
     ///
     /// * panics when matrix is not invertible
-    pub fn new(aspect: f32, fov: f32, z_near: f32, z_far: f32) -> Self {
+    pub fn new(aspect: f32, fov: f32, z_near: f32) -> Self {
         if cfg!(debug_assertions) {
-            assert!(
-                !approx::relative_eq!(z_far - z_near, 0.0),
-                "The near-plane and far-plane must not be superimposed."
-            );
             assert!(
                 !approx::relative_eq!(aspect, 0.0),
                 "The apsect ratio must not be zero."
@@ -294,8 +289,7 @@ impl Perspective {
 
         matrix[(0, 0)] = 1.0 / (aspect * tan_half_fovy);
         matrix[(1, 1)] = -1.0 / tan_half_fovy;
-        matrix[(2, 2)] = z_far / (z_near - z_far);
-        matrix[(2, 3)] = -(z_far * z_near) / (z_far - z_near);
+        matrix[(2, 3)] = z_near;
         matrix[(3, 2)] = -1.0;
 
         Self {
@@ -422,7 +416,7 @@ pub enum Projection {
 impl Projection {
     /// Creates an orthographic projection with the given left, right, bottom, and
     /// top plane distances.
-    /// The projection matrix is right-handed and has a depth range of 0 to 1
+    /// The projection matrix is right-handed and has a depth goes from 1 to 0.
     pub fn orthographic(
         left: f32,
         right: f32,
@@ -436,9 +430,10 @@ impl Projection {
 
     /// Creates a perspective projection with the given aspect ratio and
     /// field-of-view. `fov` is specified in radians.
-    /// The projection matrix is right-handed and has a depth range of 0 to 1
-    pub fn perspective(aspect: f32, fov: f32, z_near: f32, z_far: f32) -> Projection {
-        Projection::Perspective(Perspective::new(aspect, fov, z_near, z_far))
+    /// The projection matrix is right-handed and depth goes from 1 to 0.
+    /// There is no far plane.
+    pub fn perspective(aspect: f32, fov: f32, z_near: f32) -> Projection {
+        Projection::Perspective(Perspective::new(aspect, fov, z_near))
     }
 
     /// Creates a `Projection::CustomMatrix` with the matrix provided.
@@ -650,7 +645,6 @@ impl Camera {
             width / height,
             std::f32::consts::FRAC_PI_3,
             0.1,
-            2000.0,
         ))
     }
 
@@ -731,8 +725,6 @@ pub enum CameraPrefab {
         fovy: f32,
         /// Near clip plane distance
         znear: f32,
-        /// Far clip plane distance
-        zfar: f32,
     },
 }
 
@@ -763,8 +755,7 @@ impl<'a> PrefabData<'a> for CameraPrefab {
                         aspect,
                         fovy,
                         znear,
-                        zfar,
-                    } => Projection::perspective(aspect, fovy, znear, zfar),
+                    } => Projection::perspective(aspect, fovy, znear),
                 },
             },
         )?;
@@ -950,7 +941,7 @@ mod tests {
 
     #[test]
     fn test_perspective_serde() {
-        let test_persp = Projection::perspective(1.7, std::f32::consts::FRAC_PI_3, 0.1, 1000.0);
+        let test_persp = Projection::perspective(1.7, std::f32::consts::FRAC_PI_3, 0.1);
         println!(
             "{}",
             to_string_pretty(&test_persp, Default::default()).unwrap()
@@ -963,15 +954,12 @@ mod tests {
 
     #[test]
     fn extract_perspective_values() {
-        let proj = Perspective::new(1280.0 / 720.0, std::f32::consts::FRAC_PI_3, 0.1, 100.0);
+        let proj = Perspective::new(1280.0 / 720.0, std::f32::consts::FRAC_PI_3, 0.1);
 
         assert_ulps_eq!(1280.0 / 720.0, proj.aspect());
         assert_ulps_eq!(std::f32::consts::FRAC_PI_3, proj.fovy());
         assert_ulps_eq!(0.1, proj.near());
-        // TODO: we need to solve these precision errors
-        assert_relative_eq!(100.0, proj.far(), max_relative = 1.0);
 
-        //let proj = Projection::perspective(width/height, std::f32::consts::FRAC_PI_3, 0.1, 2000.0);
         let proj_standard = Camera::standard_3d(1920.0, 1280.0);
         assert_ulps_eq!(
             std::f32::consts::FRAC_PI_3,
@@ -988,11 +976,6 @@ mod tests {
         assert_ulps_eq!(
             0.1,
             proj_standard.projection().as_perspective().unwrap().near()
-        );
-        assert_relative_eq!(
-            2000.0,
-            proj_standard.projection().as_perspective().unwrap().far(),
-            max_relative = 3.0
         );
     }
 
@@ -1100,8 +1083,7 @@ mod tests {
         let height = 720.0;
 
         // Our standrd projection has a far clipping plane of 2000.0
-        let proj =
-            Projection::perspective(width / height, std::f32::consts::FRAC_PI_3, 0.1, 2000.0);
+        let proj = Projection::perspective(width / height, std::f32::consts::FRAC_PI_3, 0.1);
         let our_proj = Camera::standard_3d(width, height).inner;
 
         assert_ulps_eq!(our_proj.as_matrix(), proj.as_matrix());
@@ -1116,7 +1098,7 @@ mod tests {
         // https://www.khronos.org/registry/vulkan/specs/1.0/html/vkspec.html#vertexpostproc-clipping-shader-outputs
         let (camera_transform, simple_points, simple_points_clipped) = setup();
 
-        let proj = Projection::perspective(1280.0 / 720.0, std::f32::consts::FRAC_PI_3, 0.1, 100.0);
+        let proj = Projection::perspective(1280.0 / 720.0, std::f32::consts::FRAC_PI_3, 0.1);
         let view = gatherer_calc_view_matrix(camera_transform);
 
         let mvp = proj.as_matrix() * view;
@@ -1149,8 +1131,6 @@ mod tests {
         // Behind Camera should be clipped. (Test in Clipspace)
         assert_lt!(z_axis_clipped[2], 0.0);
     }
-
-    // Todo: Add perspective_orientation_reversed_z when we support reversed z depth buffer.
 
     #[test]
     fn orthographic_orientation() {
@@ -1190,7 +1170,7 @@ mod tests {
     fn perspective_depth_usage() {
         let (camera_transform, _, _) = setup();
 
-        let proj = Projection::perspective(1280.0 / 720.0, std::f32::consts::FRAC_PI_3, 0.1, 100.0);
+        let proj = Projection::perspective(1280.0 / 720.0, std::f32::consts::FRAC_PI_3, 0.1);
         let view = gatherer_calc_view_matrix(camera_transform);
 
         let mvp = proj.as_matrix() * view;
