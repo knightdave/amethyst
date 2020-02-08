@@ -1,0 +1,28 @@
+steps:
+- template: azure-install-rust.yml
+
+- template: azure-install-amethyst-deps.yml
+
+- bash: rustup component add clippy || echo "clippy not available"
+  displayName: "Install clippy (maybe)"
+
+- bash: cargo clippy --all --all-targets --features "$DRIVER sdl_controller json saveload tiles"
+  displayName: "cargo clippy"
+
+- bash: cargo test --workspace --features "$DRIVER sdl_controller json saveload tiles"
+  displayName: "cargo test (nonWindows)"
+  condition: and(succeeded(), ne(variables['Agent.OS'], 'Windows_NT'), ne(variables['TOOLCHAIN'], 'nightly'))
+
+- bash: cargo test --workspace --features "nightly $DRIVER sdl_controller json saveload tiles"
+  displayName: "cargo test (nonWindows) (nightly)"
+  condition: and(succeeded(), ne(variables['Agent.OS'], 'Windows_NT'), eq(variables['TOOLCHAIN'], 'nightly'))
+
+# Windows agent have 10GB limit - need to split building to 2 parts
+- bash: |
+    cargo test --examples --features "$DRIVER sdl_controller json saveload"
+    cargo clean
+    cargo test --workspace --lib --bins --tests --benches --features "$DRIVER sdl_controller json saveload tiles"
+  displayName: "cargo test (windows)"
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+
+- template: azure-cleanup.yml

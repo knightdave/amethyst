@@ -1,0 +1,8 @@
+steps:
+- bash: |
+    sccache --show-stats
+    sccache --stop-server
+  displayName: shutdown sccache
+  continueOnError: true
+- bash: cargo-cache
+  displayName: run cargo cache --autoclean

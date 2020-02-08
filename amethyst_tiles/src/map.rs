@@ -50,6 +50,8 @@ pub trait Map {
     /// This performs an inverse matrix transformation of the world coordinate, scaling and translating using this
     /// maps `origin` and `tile_dimensions` respectively. If the tile map entity has a transform component, then
     /// it also translates the point using the it's transform.
+    /// # Errors
+    /// Will return `TileOutOfBoundsError` if coordinate out of map bounds.
     fn to_tile(
         &self,
         coord: &Vector3<f32>,
@@ -398,8 +400,8 @@ mod tests {
         let mut inner = TileMap::<TestTile, E>::new(dimensions, Vector3::new(10, 10, 1), None);
         let map = UnsafeWrapper::new(&mut inner);
 
-        (0..dimensions.x).into_iter().for_each(|x| {
-            (0..dimensions.y).into_iter().for_each(|y| {
+        (0..dimensions.x).for_each(|x| {
+            (0..dimensions.y).for_each(|y| {
                 for z in 0..dimensions.z {
                     let point = Point3::new(x, y, z);
 
@@ -408,8 +410,8 @@ mod tests {
             });
         });
 
-        (0..dimensions.x).into_iter().for_each(|x| {
-            (0..dimensions.y).into_iter().for_each(|y| {
+        (0..dimensions.x).for_each(|x| {
+            (0..dimensions.y).for_each(|y| {
                 for z in 0..dimensions.z {
                     let point = Point3::new(x, y, z);
                     assert_eq!(map.get().get(&Point3::new(x, y, z)).unwrap().point, point);

@@ -1,19 +1,136 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
+  branches:
+    include:
+    - '*'
+    exclude:
+    - master
+pr:
 - master
 
-pool:
-  vmImage: 'amethystrs/builder-linux:stable'
+variables:
+  SCCACHE_DIR: $(Build.Repository.LocalPath)/rustcache/sccache
+  SCCACHE_CACHE_SIZE: 1G
+  SCCACHE_VER: 0.2.12
+  MDBOOK_VER: 0.3.5
+  # RUSTFLAGS: -D warnings
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+jobs:
+- job: Linux
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: ci/azure-test-all.yml
+  strategy:
+    matrix:
+      stable:
+        TOOLCHAIN: stable
+      beta:
+        TOOLCHAIN: beta
+      nightly:
+        TOOLCHAIN: nightly
+  variables:
+    DRIVER: vulkan
+    CARGO_CACHE: /usr/share/rust/.cargo/registry/cache
+    SCCACHE_ARCH: x86_64-unknown-linux-musl
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- job: macOS
+  pool:
+    vmImage: macos-10.15
+  steps:
+    - template: ci/azure-test-all.yml
+  strategy:
+    matrix:
+      stable:
+        TOOLCHAIN: stable
+  variables:
+    DRIVER: metal
+    CARGO_CACHE: /Users/runner/.cargo/registry/cache
+    SCCACHE_ARCH: x86_64-apple-darwin
+
+- job: Windows
+  pool:
+    vmImage: windows-2019
+  steps:
+    - template: ci/azure-test-all.yml
+  strategy:
+    matrix:
+      stable-x86_64-msvc:
+        TOOLCHAIN: stable-x86_64-pc-windows-msvc 
+  variables:
+    DRIVER: vulkan
+    CARGO_CACHE: /c/Rust/.cargo/registry/cache
+    SCCACHE_ARCH: x86_64-pc-windows-msvc
+
+- job: rustfmt
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: ci/azure-install-rust.yml
+    - bash: rustup component add rustfmt
+      displayName: "Install rustfmt"
+    - bash: cargo fmt --all -- --check
+      displayName: "Check rustfmt (cargo)"
+  variables:
+    TOOLCHAIN: nightly
+
+
+- job: docs
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: ci/azure-install-rust.yml
+    - template: ci/azure-install-amethyst-deps.yml
+    - bash: |
+        set -e
+        mkdir mdbook
+        curl -Lf https://github.com/rust-lang-nursery/mdBook/releases/download/v$MDBOOK_VER/mdbook-v$MDBOOK_VER-x86_64-unknown-linux-gnu.tar.gz | tar -xz --directory=./mdbook
+        echo "##vso[task.prependpath]`pwd`/mdbook"
+      displayName: "Install mdbook"
+    - bash: cargo build --workspace --features "empty"
+      displayName: "Build amethyst to test documentation"
+    - bash: mdbook test -L ./target/debug/deps book
+      displayName: "Test documentation samples"
+    - bash: mdbook build --dest-dir ./target/doc book
+      displayName: "Build mdbook documentation"
+    - bash: cargo doc --no-deps --features "empty"
+      displayName: "Build documentation"
+    - template: ci/azure-cleanup.yml
+  variables:
+    TOOLCHAIN: stable
+    DRIVER: vulkan
+    CARGO_CACHE: /usr/share/rust/.cargo/registry/cache
+    SCCACHE_ARCH: x86_64-unknown-linux-musl
+
+- job: coverage
+  pool:
+    vmImage: ubuntu-18.04
+  steps:
+    - template: ci/azure-install-rust.yml
+    - template: ci/azure-install-amethyst-deps.yml
+    - bash: |
+        sudo apt-get update
+        sudo apt-get install -y --fix-missing pkg-config
+        sudo apt-get install -y binutils-dev build-essential cmake libcurl4-openssl-dev libdw-dev libiberty-dev ninja-build python zlib1g-dev
+        wget https://github.com/SimonKagstrom/kcov/archive/$KCOV_TARBALL
+        tar xzf $KCOV_TARBALL
+        cd $KCOV_DIR
+        mkdir build
+        cd build
+        cmake -G 'Ninja' ..
+        cmake --build .
+        sudo cmake --build . --target install
+      displayName: Install kcov
+    - bash: ./scripts/coverage.sh
+      displayName: "Run converage"
+    # - bash: curl -s https://codecov.io/bash | bash -s ./target/coverage/merged -t $CODECOV_TOKEN
+    #   displayName: "Upload coverage"
+    - template: ci/azure-cleanup.yml
+  variables:
+    KCOV_TARBALL: v36.tar.gz
+    KCOV_DIR: kcov-36
+    TOOLCHAIN: stable
+    DRIVER: vulkan
+    CARGO_CACHE: /usr/share/rust/.cargo/registry/cache
+    SCCACHE_ARCH: x86_64-unknown-linux-musl
+
+

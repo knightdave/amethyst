@@ -294,9 +294,10 @@ mod tests {
         const DURATION: u64 = 1; // in seconds.
         const UNCERTAINTY: u32 = 10; // in percents.
         let mut watch = Stopwatch::new();
+        let dur = Duration::from_secs(DURATION); // initialize earlier to not waste time on sleep
 
         watch.start();
-        thread::sleep(Duration::from_secs(DURATION));
+        thread::sleep(dur);
         watch.stop();
 
         // check that elapsed time was DURATION sec +/- UNCERTAINTY%
@@ -317,9 +318,10 @@ mod tests {
     fn reset() {
         const DURATION: u64 = 2; // in seconds.
         let mut watch = Stopwatch::new();
+        let dur = Duration::from_secs(DURATION);
 
         watch.start();
-        thread::sleep(Duration::from_secs(DURATION));
+        thread::sleep(dur);
         watch.stop();
         watch.reset();
 
@@ -332,13 +334,15 @@ mod tests {
         const DURATION: u64 = 1; // in seconds.
         const UNCERTAINTY: u32 = 10; // in percents.
         let mut watch = Stopwatch::new();
+        let dur0 = Duration::from_secs(DURATION0);
+        let dur = Duration::from_secs(DURATION);
 
         watch.start();
-        thread::sleep(Duration::from_secs(DURATION0));
+        thread::sleep(dur0);
         watch.stop();
 
         watch.restart();
-        thread::sleep(Duration::from_secs(DURATION));
+        thread::sleep(dur);
         watch.stop();
 
         // check that elapsed time was DURATION sec +/- UNCERTAINTY%
@@ -361,10 +365,11 @@ mod tests {
         const DURATION: u64 = 3; // in seconds.
         const UNCERTAINTY: u32 = 10; // in percents.
         let mut watch = Stopwatch::new();
+        let dur = Duration::from_secs(1);
 
         for _ in 0..DURATION {
             watch.start();
-            thread::sleep(Duration::from_secs(1));
+            thread::sleep(dur);
             watch.stop();
         }
 

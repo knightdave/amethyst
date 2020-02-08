@@ -1,0 +1,70 @@
+steps:
+- checkout: self
+  path: $(Build.Repository.Name)
+
+- bash: |
+    sudo apt-get update
+    sudo apt-get install -y gcc pkg-config openssl libasound2-dev cmake build-essential python3 libfreetype6-dev libexpat1-dev libxcb-composite0-dev libssl-dev libx11-dev libsdl2-dev
+    echo -e 'pcm.!default {\n    type plug\n    slave.pcm "null"\n}' | sudo tee /etc/asound.conf
+    sudo usermod -aG audio $USER
+  displayName: "Install deps for (linux)"
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+
+- bash: |
+    curl https://libsdl.org/release/SDL2-devel-2.0.10-VC.zip -o SDL2-devel-2.0.10-VC.zip
+    unzip SDL2-devel-2.0.10-VC.zip
+    cp SDL2-2.0.10/lib/x64/* /c/Rust/.rustup/toolchains/$TOOLCHAIN/lib/rustlib/x86_64-pc-windows-msvc/lib/
+    rm -f SDL2-devel-2.0.10-VC.zip
+    rm -rf SDL2-2.0.10
+  displayName: "Install deps for (windows)"
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+
+- bash: |
+    brew update
+    brew install sdl2
+  displayName: "Install deps for (osx)"
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
+
+# Workaround for https://github.com/microsoft/azure-pipelines-tasks/issues/12179
+- bash: |
+    rm -Rf "$CARGO_CACHE"
+    mkdir -p "$SCCACHE_DIR"
+  displayName: clean state on private agents
+# --------------
+
+- task: Cache@2
+  inputs:
+    key: 'cargo | "$(Agent.OS)" | "$(TOOLCHAIN)" | ./Cargo.toml'
+    restoreKeys: |
+      cargo | "$(Agent.OS)" | "$(TOOLCHAIN)" | ./Cargo.toml
+      cargo | "$(Agent.OS)" | ./Cargo.toml
+      cargo | "$(Agent.OS)"
+      cargo
+    path: $(CARGO_CACHE)
+  displayName: Cache Cargo packages
+
+- task: Cache@2
+  inputs:
+    key: 'sccache | "$(Agent.OS)"'
+    restoreKeys: |
+      sccache | "$(Agent.OS)" | "$(TOOLCHAIN)"
+      sccache | "$(Agent.OS)"
+      sccache
+    path: $(SCCACHE_DIR)
+  displayName: sccache cache
+
+- bash: |
+    cargo install cargo-cache --no-default-features --features ci-autoclean cargo-cache
+  displayName: Install cargo-cache
+
+- bash: |
+    set -xe
+    mkdir sccache
+    curl -Lf https://github.com/mozilla/sccache/releases/download/$SCCACHE_VER/sccache-$SCCACHE_VER-$SCCACHE_ARCH.tar.gz -o sccache.tgz
+    tar -xz --strip-components=1 --directory=./sccache -f sccache.tgz && rm -f sccache.tgz
+    echo "##vso[task.prependpath]`pwd`/sccache"
+    echo "##vso[task.setvariable variable=RUSTC_WRAPPER]`pwd`/sccache/sccache"
+  displayName: Install sccache
+- bash: which sccache && sccache --version && sccache --show-stats
+  displayName: Show sccache stats
+
