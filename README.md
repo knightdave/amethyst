@@ -2,12 +2,13 @@
 
 # Amethyst
 
-[![Build Status][s1]][jc] [![Crates.io][s2]][ci] [![docs page][docs-badge]][docs] [![MIT/Apache][s3]][li]
+[![Build Status][s1]][jc] [![Build Status][s3]][jc] [![Crates.io][s2]][ci] [![docs page][docs-badge]][docs] [![MIT/Apache][s3]][li]
 [![Join us on Discord][s4]][di]  [![Community forum][s5]][ds] [![Reddit][s7]][rd]
 [![Code coverage][s8]][cc] ![Lines of Code][s6]
 
 [s1]: https://jenkins.amethyst-engine.org/job/amethyst/job/master/badge/icon
 [s2]: https://img.shields.io/crates/v/amethyst.svg
+[s3]: https://dev.azure.com/dawidrycerz93/amethyst/_apis/build/status/knightdave.amethyst?branchName=add-azure-pipelines
 [docs-badge]: https://img.shields.io/badge/docs-website-blue.svg
 [docs]: https://amethyst.rs/doc/
 [s3]: https://img.shields.io/badge/license-MIT%2FApache-blue.svg
@@ -17,6 +18,7 @@
 [s7]: https://img.shields.io/badge/dynamic/json.svg?label=r/Amethyst&query=$.data.subscribers&url=https://www.reddit.com/r/Amethyst/about.json
 [s8]: https://img.shields.io/codecov/c/github/amethyst/amethyst.svg
 [jc]: https://jenkins.amethyst-engine.org/blue/organizations/jenkins/amethyst/activity/
+[ac]: https://dev.azure.com/dawidrycerz93/amethyst/_build?definitionId=1
 [ci]: https://crates.io/crates/amethyst/
 [li]: COPYING
 [di]: https://discord.gg/amethyst

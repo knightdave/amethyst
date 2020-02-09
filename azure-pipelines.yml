@@ -122,8 +122,8 @@ jobs:
       displayName: Install kcov
     - bash: ./scripts/coverage.sh
       displayName: "Run converage"
-    # - bash: curl -s https://codecov.io/bash | bash -s ./target/coverage/merged -t $CODECOV_TOKEN
-    #   displayName: "Upload coverage"
+    - bash: curl -s https://codecov.io/bash | bash -s ./target/coverage/merged -t $CODECOV_TOKEN
+      displayName: "Upload coverage"
     - template: ci/azure-cleanup.yml
   variables:
     KCOV_TARBALL: v36.tar.gz
