@@ -36,6 +36,7 @@ thread_profiler = { version = "0.3", optional = true }
 [dev-dependencies]
 amethyst = { path = "..", version = "0.14.0" }
 ron = "0.5.1"
+spin_sleep = "0.3.7"
 
 [features]
 default = ["specs/parallel", "specs-hierarchy/parallel"]

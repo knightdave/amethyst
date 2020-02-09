@@ -285,7 +285,8 @@ impl Stopwatch {
 // Unit tests
 #[cfg(test)]
 mod tests {
-    use std::{thread, time::Duration};
+    use spin_sleep::SpinSleeper;
+    use std::time::Duration;
 
     use super::Stopwatch;
 
@@ -295,9 +296,10 @@ mod tests {
         const UNCERTAINTY: u32 = 10; // in percents.
         let mut watch = Stopwatch::new();
         let dur = Duration::from_secs(DURATION); // initialize earlier to not waste time on sleep
+        let sleeper = SpinSleeper::new(100_000_000);
 
         watch.start();
-        thread::sleep(dur);
+        sleeper.sleep(dur);
         watch.stop();
 
         // check that elapsed time was DURATION sec +/- UNCERTAINTY%
@@ -319,9 +321,10 @@ mod tests {
         const DURATION: u64 = 2; // in seconds.
         let mut watch = Stopwatch::new();
         let dur = Duration::from_secs(DURATION);
+        let sleeper = SpinSleeper::new(100_000_000);
 
         watch.start();
-        thread::sleep(dur);
+        sleeper.sleep(dur);
         watch.stop();
         watch.reset();
 
@@ -336,13 +339,14 @@ mod tests {
         let mut watch = Stopwatch::new();
         let dur0 = Duration::from_secs(DURATION0);
         let dur = Duration::from_secs(DURATION);
+        let sleeper = SpinSleeper::new(100_000_000);
 
         watch.start();
-        thread::sleep(dur0);
+        sleeper.sleep(dur0);
         watch.stop();
 
         watch.restart();
-        thread::sleep(dur);
+        sleeper.sleep(dur);
         watch.stop();
 
         // check that elapsed time was DURATION sec +/- UNCERTAINTY%
@@ -366,10 +370,11 @@ mod tests {
         const UNCERTAINTY: u32 = 10; // in percents.
         let mut watch = Stopwatch::new();
         let dur = Duration::from_secs(1);
+        let sleeper = SpinSleeper::new(100_000_000);
 
         for _ in 0..DURATION {
             watch.start();
-            thread::sleep(dur);
+            sleeper.sleep(dur);
             watch.stop();
         }
 
